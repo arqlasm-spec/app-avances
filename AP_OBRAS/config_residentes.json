@@ -1,24 +1,5 @@
 {
-    "Ing. Marcos": [
-        "ED4",
-        "ED5",
-        "ED6",
-        "ED7",
-        "ED8"
-    ],
-    "Ing. Raúl": [
-        "ED10",
-        "ED21",
-        "ED22"
-    ],
-    "Ing. Abdiel": [
-        "ED1",
-        "ED2"
-    ],
-    "PRUEBA": [
-        "P1",
-        "P2",
-        "P3",
-        "P4"
-    ]
+    "Ing. Abdiel": ["ED1", "ED2", "ED3", "ED9", "ED35", "ED36", "ED37", "ED38", "ED39", "ED40", "ED41", "ED42", "ED43", "ED44", "ED45"],
+    "Ing. Marcos": ["ED4", "ED5", "ED6", "ED7", "ED8", "ED11", "ED12", "ED13", "ED14", "ED15", "ED16", "ED17", "ED18", "ED19", "ED20"],
+    "Ing. Raúl": ["ED10", "ED21", "ED22", "ED23", "ED24", "ED25", "ED26", "ED27", "ED28", "ED29", "ED30", "ED31", "ED32", "ED33", "ED34"]
 }
