@@ -204,7 +204,7 @@ with col_logo:
   try:
     st.image("logocefecsa.jpg", width=75)
   except:
-    st.write("🏗️")  # Imagen de respaldo por si acaso
+    st.write("🏗️")
 
 with col_titulo:
   st.markdown(
@@ -398,7 +398,7 @@ elif st.session_state.panel_activo == "eliminar":
 
 st.divider()
 
-# --- CARGA DE DATOS DE AVANCES DESDE GITHUB ---
+# --- CARGA DE DATOS DE AVANCES DESDE GITHUB Y CONFIGURACIÓN DE FECHA INTELIGENTE ---
 if (
     "residente_actual_memoria" not in st.session_state
     or st.session_state.residente_actual_memoria != nombre_residente_actual
@@ -436,8 +436,29 @@ if (
     except Exception as e:
       st.error(f"Error al procesar datos: {e}")
 
+  # CONFIGURACIÓN INTELIGENTE DE FECHA: Carga la última fecha guardada si existe, si no, fecha actual
+  fechas_registradas_init = sorted(
+      st.session_state.base_datos.keys(),
+      key=lambda x: datetime.datetime.strptime(x, "%d/%m/%Y").date(),
+  )
+  if fechas_registradas_init:
+    st.session_state.selected_date = datetime.datetime.strptime(
+        fechas_registradas_init[-1], "%d/%m/%Y"
+    ).date()
+  else:
+    st.session_state.selected_date = datetime.date.today()
+
 if "selected_date" not in st.session_state:
-  st.session_state.selected_date = datetime.date.today()
+  fechas_registradas_init = sorted(
+      st.session_state.base_datos.keys(),
+      key=lambda x: datetime.datetime.strptime(x, "%d/%m/%Y").date(),
+  )
+  if fechas_registradas_init:
+    st.session_state.selected_date = datetime.datetime.strptime(
+        fechas_registradas_init[-1], "%d/%m/%Y"
+    ).date()
+  else:
+    st.session_state.selected_date = datetime.date.today()
 
 
 def obtener_valor_anterior(edi, campo, fecha_actual_str):
@@ -522,7 +543,7 @@ def navegar_fechas(direccion):
     st.session_state.selected_date = fechas_dt[nuevo_idx]
 
 
-# --- CONTROLES DE FECHA Y EDIFICIO (REORGANIZADOS CON ETIQUETA GRANDE) ---
+# --- CONTROLES DE FECHA Y EDIFICIO ---
 col_nav1, col_nav2, col_nav3, col_edi, col_etiqueta_edi = st.columns(
     [1.1, 2.0, 1.1, 1.8, 1.6]
 )
@@ -713,7 +734,7 @@ if edi_actual != "Sin Edificio":
 
 st.divider()
 
-# --- BOTONES DE ACCIÓN (GUARDAR EN GITHUB CON VALIDACIÓN MEJORADA) ---
+# --- BOTONES DE ACCIÓN (CON LIMPIEZA AUTOMÁTICA DE VALORES ERRÓNEOS) ---
 col_btn1, col_btn2, col_btn3 = st.columns(3)
 
 with col_btn1:
@@ -723,8 +744,9 @@ with col_btn1:
       )
       and edi_actual != "Sin Edificio"
   ):
-    # --- VALIDACIÓN: SOLO MARCA ERROR SI SE LLENA UN NÚMERO MENOR Y NO ESTÁ VACÍO ---
     errores_avance = []
+    campos_con_error = []
+
     for campo in column_1_actividades:
       val_ant_str = obtener_valor_anterior(edi_actual, campo, fec_str)
       val_act_str = (
@@ -733,7 +755,6 @@ with col_btn1:
           .strip()
       )
 
-      # Si el campo se deja vacío o en cero, significa que no se avanzó esta semana (se mantiene el anterior)
       if val_act_str == "" or val_act_str == "0":
         continue
 
@@ -745,14 +766,14 @@ with col_btn1:
       try:
         val_act_num = float(val_act_str)
       except ValueError:
-        continue  # Si escribieron texto inválido que no es número, se ignora aquí
+        continue
 
-      # Solo genera error si el usuario escribió un número explícito menor al anterior
       if val_act_num < val_ant_num:
         errores_avance.append(
             f"• **{campo}**: Ingresaste **{val_act_num}** pero el registro"
             f" anterior era **{val_ant_num}**."
         )
+        campos_con_error.append(campo)
 
     if errores_avance:
       st.error(
@@ -761,8 +782,16 @@ with col_btn1:
       )
       for err in errores_avance:
         st.markdown(err)
+
+      # LIMPIEZA AUTOMÁTICA: Restablece a 0 en la memoria los campos incorrectos para que no persistan
+      for campo_err in campos_con_error:
+        st.session_state.base_datos[fec_str][edi_actual]["valores"][
+            campo_err
+        ] = "0"
+
       st.warning(
-          "Por favor, corrige los valores señalados antes de volver a guardar."
+          "🔄 Los valores incorrectos han sido limpiados automáticamente en"
+          " pantalla. Por favor, corrígelos y vuelve a guardar."
       )
     else:
       try:
