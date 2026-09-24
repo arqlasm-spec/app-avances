@@ -436,7 +436,6 @@ if (
     except Exception as e:
       st.error(f"Error al procesar datos: {e}")
 
-  # CONFIGURACIÓN INTELIGENTE DE FECHA: Carga la última fecha guardada si existe, si no, fecha actual
   fechas_registradas_init = sorted(
       st.session_state.base_datos.keys(),
       key=lambda x: datetime.datetime.strptime(x, "%d/%m/%Y").date(),
@@ -734,137 +733,161 @@ if edi_actual != "Sin Edificio":
 
 st.divider()
 
-# --- BOTONES DE ACCIÓN (CON LIMPIEZA AUTOMÁTICA DE VALORES ERRÓNEOS) ---
-col_btn1, col_btn2, col_btn3 = st.columns(3)
+# --- GESTIÓN DE ADVERTENCIA ACTIVA (VENTANA DE DIÁLOGO / BANNER DE BLOQUEO) ---
+if st.session_state.get("mostrar_alerta_error", False):
+  st.error(
+      "⚠️ **Atención: Se detectó un avance menor al registro anterior**"
+  )
+  st.markdown(
+      "No puedes guardar un valor menor a una fecha pasada en las siguientes"
+      " actividades:"
+  )
+  for err_msg in st.session_state.get("lista_errores_temp", []):
+    st.markdown(err_msg)
 
-with col_btn1:
-  if (
-      st.button(
-          "💾 Guardar Edificio", type="primary", use_container_width=True
-      )
-      and edi_actual != "Sin Edificio"
-  ):
-    errores_avance = []
-    campos_con_error = []
+  st.warning(
+      "Haz clic en el botón de abajo para limpiar automáticamente estos"
+      " valores erróneos y regresar a la edición."
+  )
 
-    for campo in column_1_actividades:
-      val_ant_str = obtener_valor_anterior(edi_actual, campo, fec_str)
-      val_act_str = (
-          st.session_state.base_datos[fec_str][edi_actual]["valores"]
-          .get(campo, "0")
-          .strip()
-      )
-
-      if val_act_str == "" or val_act_str == "0":
-        continue
-
-      try:
-        val_ant_num = float(val_ant_str) if val_ant_str else 0.0
-      except ValueError:
-        val_ant_num = 0.0
-
-      try:
-        val_act_num = float(val_act_str)
-      except ValueError:
-        continue
-
-      if val_act_num < val_ant_num:
-        errores_avance.append(
-            f"• **{campo}**: Ingresaste **{val_act_num}** pero el registro"
-            f" anterior era **{val_ant_num}**."
-        )
-        campos_con_error.append(campo)
-
-    if errores_avance:
-      st.error(
-          "⚠️ **Error de validación:** No puedes registrar un avance menor al"
-          " de una fecha anterior en las siguientes actividades:"
-      )
-      for err in errores_avance:
-        st.markdown(err)
-
-      # LIMPIEZA AUTOMÁTICA: Restablece a 0 en la memoria los campos incorrectos para que no persistan
-      for campo_err in campos_con_error:
-        st.session_state.base_datos[fec_str][edi_actual]["valores"][
-            campo_err
-        ] = "0"
-
-      st.warning(
-          "🔄 Los valores incorrectos han sido limpiados automáticamente en"
-          " pantalla. Por favor, corrígelos y vuelve a guardar."
-      )
-    else:
-      try:
-        contenido_actual, sha_actual = leer_archivo_github(nombre_archivo_txt)
-        lineas_existentes = contenido_actual.splitlines(keepends=True)
-
-        datos = [fec_str, nombre_residente_actual, edi_actual]
-        for campo in todos_los_campos:
-          valor_ingresado = (
-              st.session_state.base_datos[fec_str][edi_actual]["valores"][campo]
-              .strip()
-          )
-          if campo in column_1_actividades:
-            try:
-              if float(valor_ingresado) == 1.0:
-                valor_ingresado = "100"
-            except ValueError:
-              pass
-          datos.append(valor_ingresado)
-
-        obs_a_guardar = (
-            st.session_state.base_datos[fec_str][edi_actual]
-            .get("observaciones", "")
-            .replace("\n", " ")
-        )
-        datos.append(obs_a_guardar)
-
-        linea_nueva = ",".join(datos) + "\n"
-
-        nuevas_lineas = []
-        encontrado = False
-        for l in lineas_existentes:
-          partes = l.strip().split(",")
-          if (
-              len(partes) >= 3
-              and partes[0] == fec_str
-              and partes[2] == edi_actual
-          ):
-            nuevas_lineas.append(linea_nueva)
-            encontrado = True
-          else:
-            nuevas_lineas.append(l if l.endswith("\n") else l + "\n")
-        if not encontrado:
-          nuevas_lineas.append(linea_nueva)
-
-        contenido_final = "".join(nuevas_lineas)
-        exito = guardar_archivo_github(
-            nombre_archivo_txt, contenido_final, sha_actual
-        )
-        if exito:
-          st.success(
-              f"¡Edificio {edi_actual} y observaciones guardados correctamente en"
-              " GitHub!"
-          )
-        else:
-          st.error("Error al guardar en GitHub.")
-      except Exception as e:
-        st.error(f"Error: {e}")
-
-with col_btn2:
-  if (
-      st.button("🔄 Restablecer a 0", use_container_width=True)
-      and edi_actual != "Sin Edificio"
-  ):
-    for campo in todos_los_campos:
-      st.session_state.base_datos[fec_str][edi_actual]["valores"][campo] = "0"
-    st.session_state.base_datos[fec_str][edi_actual]["observaciones"] = ""
+  if st.button("🔄 Entendido, limpiar valores y continuar", type="primary"):
+    # Limpia los campos con error de la memoria actual
+    for campo_err in st.session_state.get("campos_errores_temp", []):
+      st.session_state.base_datos[fec_str][edi_actual]["valores"][
+          campo_err
+      ] = "0"
+    # Cierra la alerta y recarga
+    st.session_state.mostrar_alerta_error = False
+    st.session_state.lista_errores_temp = []
+    st.session_state.campos_errores_temp = []
     st.rerun()
 
-with col_btn3:
-  if st.button("📂 Ver Archivo en GitHub", use_container_width=True):
-    contenido_txt, _ = leer_archivo_github(nombre_archivo_txt)
-    if contenido_txt:
-      st.code(contenido_txt)
-    else:
-      st.info("Aún no hay registros de avances en GitHub para este residente.")
+else:
+  # --- BOTONES DE ACCIÓN NORMALES ---
+  col_btn1, col_btn2, col_btn3 = st.columns(3)
+
+  with col_btn1:
+    if (
+        st.button(
+            "💾 Guardar Edificio", type="primary", use_container_width=True
+        )
+        and edi_actual != "Sin Edificio"
+    ):
+      errores_avance = []
+      campos_con_error = []
+
+      for campo in column_1_actividades:
+        val_ant_str = obtener_valor_anterior(edi_actual, campo, fec_str)
+        val_act_str = (
+            st.session_state.base_datos[fec_str][edi_actual]["valores"]
+            .get(campo, "0")
+            .strip()
+        )
+
+        if val_act_str == "" or val_act_str == "0":
+          continue
+
+        try:
+          val_ant_num = float(val_ant_str) if val_ant_str else 0.0
+        except ValueError:
+          val_ant_num = 0.0
+
+        try:
+          val_act_num = float(val_act_str)
+        except ValueError:
+          continue
+
+        if val_act_num < val_ant_num:
+          errores_avance.append(
+              f"• **{campo}**: Ingresaste **{val_act_num}** pero el registro"
+              f" anterior era **{val_ant_num}**."
+          )
+          campos_con_error.append(campo)
+
+      if errores_avance:
+        # Activa la ventana de advertencia estilo "pop-up" bloqueante
+        st.session_state.mostrar_alerta_error = True
+        st.session_state.lista_errores_temp = errores_avance
+        st.session_state.campos_errores_temp = campos_con_error
+        st.rerun()
+      else:
+        try:
+          contenido_actual, sha_actual = leer_archivo_github(
+              nombre_archivo_txt
+          )
+          lineas_existentes = contenido_actual.splitlines(keepends=True)
+
+          datos = [fec_str, nombre_residente_actual, edi_actual]
+          for campo in todos_los_campos:
+            valor_ingresado = (
+                st.session_state.base_datos[fec_str][edi_actual]["valores"][
+                    campo
+                ]
+                .strip()
+            )
+            if campo in column_1_actividades:
+              try:
+                if float(valor_ingresado) == 1.0:
+                  valor_ingresado = "100"
+              except ValueError:
+                pass
+            datos.append(valor_ingresado)
+
+          obs_a_guardar = (
+              st.session_state.base_datos[fec_str][edi_actual]
+              .get("observaciones", "")
+              .replace("\n", " ")
+          )
+          datos.append(obs_a_guardar)
+
+          linea_nueva = ",".join(datos) + "\n"
+
+          nuevas_lineas = []
+          encontrado = False
+          for l in lineas_existentes:
+            partes = l.strip().split(",")
+            if (
+                len(partes) >= 3
+                and partes[0] == fec_str
+                and partes[2] == edi_actual
+            ):
+              nuevas_lineas.append(linea_nueva)
+              encontrado = True
+            else:
+              nuevas_lineas.append(l if l.endswith("\n") else l + "\n")
+          if not encontrado:
+            nuevas_lineas.append(linea_nueva)
+
+          contenido_final = "".join(nuevas_lineas)
+          exito = guardar_archivo_github(
+              nombre_archivo_txt, contenido_final, sha_actual
+          )
+          if exito:
+            st.success(
+                f"¡Edificio {edi_actual} y observaciones guardados correctamente"
+                " en GitHub!"
+            )
+          else:
+            st.error("Error al guardar en GitHub.")
+        except Exception as e:
+          st.error(f"Error: {e}")
+
+  with col_btn2:
+    if (
+        st.button("🔄 Restablecer a 0", use_container_width=True)
+        and edi_actual != "Sin Edificio"
+    ):
+      for campo in todos_los_campos:
+        st.session_state.base_datos[fec_str][edi_actual]["valores"][campo] = "0"
+      st.session_state.base_datos[fec_str][edi_actual]["observaciones"] = ""
+      st.rerun()
+
+  with col_btn3:
+    if st.button("📂 Ver Archivo en GitHub", use_container_width=True):
+      contenido_txt, _ = leer_archivo_github(nombre_archivo_txt)
+      if contenido_txt:
+        st.code(contenido_txt)
+      else:
+        st.info(
+            "Aún no hay registros de avances en GitHub para este residente."
+        )
