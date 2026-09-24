@@ -9,14 +9,32 @@ st.set_page_config(
     page_title="Control de Avances de Obra", page_icon="🏗️", layout="centered"
 )
 
+# --- CONFIGURACIÓN DE CONTRASEÑA DE ADMINISTRADOR ---
+PASSWORD_ADMIN = (
+    "admin123"  # Cambia esta contraseña por la que desees para proteger cambios
+)
+
+
+def verificar_password():
+  """Muestra un campo para ingresar la contraseña de administrador."""
+  pwd = st.text_input(
+      "🔑 Contraseña de Administrador:", type="password", key="pwd_input_admin"
+  )
+  if pwd == PASSWORD_ADMIN:
+    return True
+  elif pwd != "":
+    st.error("Contraseña incorrecta.")
+  return False
+
+
 # --- CONFIGURACIÓN DE GITHUB ---
 try:
   GITHUB_TOKEN = st.secrets["github_token"]
   GITHUB_REPO = st.secrets["github_repo"]  # Ejemplo: "tu_usuario/tu_repositorio"
 except Exception as e:
   st.error(
-      "Faltan configurar los secretos de GitHub en Streamlit. Revisa la"
-      " sección Secrets."
+      "Faltan configurar los secretos de GitHub en Streamlit. Revisa la sección"
+      " Secrets."
   )
   GITHUB_TOKEN = ""
   GITHUB_REPO = ""
@@ -72,6 +90,7 @@ column_2_dias = [
     "Miercoles",
 ]
 
+# Se añade el campo de observaciones al final de todos los campos guardados
 todos_los_campos = column_1_actividades + column_2_dias
 
 
@@ -114,7 +133,7 @@ def cargar_configuracion_residentes():
       return json.loads(contenido), sha
     except:
       pass
-  
+
   # Respaldo por defecto si no existe el archivo JSON de configuración
   default_config = {
       "Ing. Marcos": [f"ED{i}" for i in range(4, 9)],
@@ -127,7 +146,9 @@ def cargar_configuracion_residentes():
 def guardar_configuracion_residentes(diccionario_residentes):
   """Guarda la configuración de residentes y edificios en GitHub."""
   _, sha = leer_archivo_github("config_residentes.json")
-  contenido_json = json.dumps(diccionario_residentes, indent=4, ensure_ascii=False)
+  contenido_json = json.dumps(
+      diccionario_residentes, indent=4, ensure_ascii=False
+  )
   return guardar_archivo_github("config_residentes.json", contenido_json, sha)
 
 
@@ -158,11 +179,17 @@ with col_res4:
   st.write("")
   btn_eliminar = st.button("🗑️ Borrar", type="primary")
 
-nombre_limpio = nombre_residente_actual.replace(" ", "_").replace(".", "")
+nombre_limpio = (
+    nombre_residente_actual.replace(" ", "_")
+    .replace(".", "")
+    .replace("Â", "")
+)
 nombre_archivo_txt = f"avances_obra_captura_{nombre_limpio}.txt"
-EDIFICIOS_DISPONIBLES = st.session_state.residentes.get(nombre_residente_actual, [])
+EDIFICIOS_DISPONIBLES = st.session_state.residentes.get(
+    nombre_residente_actual, []
+)
 
-# --- MODALES / PANELES ---
+# --- MODALES / PANELES PROTEGIDOS CON CONTRASEÑA ---
 if btn_nuevo:
   st.session_state.panel_activo = "nuevo"
 elif btn_ajustar:
@@ -175,88 +202,130 @@ if "panel_activo" not in st.session_state:
 
 if st.session_state.panel_activo == "nuevo":
   with st.expander("➕ Dar de Alta a Nuevo Ingeniero", expanded=True):
-    nuevo_ing_txt = st.text_input("Nombre completo del ingeniero")
-    edis_nuevos_txt = st.text_input(
-        "Edificios iniciales asignados (separados por comas)", value="P1, P2, P3"
+    st.info(
+        "Se requiere contraseña de administrador para dar de alta un ingeniero."
     )
-    col_n1, col_n2 = st.columns(2)
-    with col_n1:
-      if st.button("Guardar Nuevo Ingeniero", use_container_width=True):
-        nombre_ing_limpio = nuevo_ing_txt.strip()
-        if nombre_ing_limpio:
-          if nombre_ing_limpio not in st.session_state.residentes:
-            lista_edis_ini = [
-                e.strip() for e in edis_nuevos_txt.split(",") if e.strip()
-            ]
-            if not lista_edis_ini:
-              lista_edis_ini = ["ED1"]
-            
-            # Registrar en memoria y guardar en GitHub
-            st.session_state.residentes[nombre_ing_limpio] = lista_edis_ini
-            exito_config = guardar_configuracion_residentes(st.session_state.residentes)
-            
-            if exito_config:
-              st.success(f"Ingeniero '{nombre_ing_limpio}' y sus edificios fueron guardados con éxito.")
-              st.session_state.panel_activo = None
-              st.rerun()
+    if verificar_password():
+      nuevo_ing_txt = st.text_input("Nombre completo del ingeniero")
+      edis_nuevos_txt = st.text_input(
+          "Edificios iniciales asignados (separados por comas)", value="P1, P2, P3"
+      )
+      col_n1, col_n2 = st.columns(2)
+      with col_n1:
+        if st.button("Guardar Nuevo Ingeniero", use_container_width=True):
+          nombre_ing_limpio = nuevo_ing_txt.strip()
+          if nombre_ing_limpio:
+            if nombre_ing_limpio not in st.session_state.residentes:
+              lista_edis_ini = [
+                  e.strip() for e in edis_nuevos_txt.split(",") if e.strip()
+              ]
+              if not lista_edis_ini:
+                lista_edis_ini = ["ED1"]
+
+              st.session_state.residentes[nombre_ing_limpio] = lista_edis_ini
+              exito_config = guardar_configuracion_residentes(
+                  st.session_state.residentes
+              )
+
+              if exito_config:
+                st.success(
+                    f"Ingeniero '{nombre_ing_limpio}' guardado con éxito."
+                )
+                st.session_state.panel_activo = None
+                st.rerun()
+              else:
+                st.error("Error al guardar la configuración en GitHub.")
             else:
-              st.error("Error al guardar la configuración en GitHub.")
+              st.warning("Este ingeniero ya está registrado.")
           else:
-            st.warning("Este ingeniero ya está registrado.")
-        else:
-          st.error("Escribe un nombre válido.")
-    with col_n2:
-      if st.button("Cancelar", use_container_width=True, key="cancel_nuevo"):
+            st.error("Escribe un nombre válido.")
+      with col_n2:
+        if st.button("Cancelar", use_container_width=True, key="cancel_nuevo"):
+          st.session_state.panel_activo = None
+          st.rerun()
+    else:
+      if st.button("Cancelar", key="cancel_pwd_nuevo"):
         st.session_state.panel_activo = None
         st.rerun()
 
 elif st.session_state.panel_activo == "ajustar":
-  with st.expander(f"⚙️ Ajustar datos de: {nombre_residente_actual}", expanded=True):
-    nuevo_nombre_ing = st.text_input("Modificar nombre del ingeniero", value=nombre_residente_actual)
-    edificios_actuales_str = ", ".join(EDIFICIOS_DISPONIBLES)
-    nuevos_edis_str = st.text_area(
-        "Edificios asignados (separados por comas)",
-        value=edificios_actuales_str,
-    )
-    col_a1, col_a2 = st.columns(2)
-    with col_a1:
-      if st.button("Guardar Cambios", use_container_width=True):
-        target_name = nombre_residente_actual
-        if nuevo_nombre_ing.strip() and nuevo_nombre_ing != nombre_residente_actual:
-          target_name = nuevo_nombre_ing.strip()
-          st.session_state.residentes[target_name] = st.session_state.residentes.pop(nombre_residente_actual)
-        
-        lista_edis = [e.strip() for e in nuevos_edis_str.split(",") if e.strip()]
-        st.session_state.residentes[target_name] = lista_edis
-        
-        exito_config = guardar_configuracion_residentes(st.session_state.residentes)
-        if exito_config:
-          st.success("¡Cambios y edificios actualizados con éxito!")
+  with st.expander(
+      f"⚙️ Ajustar datos de: {nombre_residente_actual}", expanded=True
+  ):
+    st.info("Se requiere contraseña de administrador para modificar ajustes.")
+    if verificar_password():
+      nuevo_nombre_ing = st.text_input(
+          "Modificar nombre del ingeniero", value=nombre_residente_actual
+      )
+      edificios_actuales_str = ", ".join(EDIFICIOS_DISPONIBLES)
+      nuevos_edis_str = st.text_area(
+          "Edificios asignados (separados por comas)",
+          value=edificios_actuales_str,
+      )
+      col_a1, col_a2 = st.columns(2)
+      with col_a1:
+        if st.button("Guardar Cambios", use_container_width=True):
+          target_name = nombre_residente_actual
+          if (
+              nuevo_nombre_ing.strip()
+              and nuevo_nombre_ing != nombre_residente_actual
+          ):
+            target_name = nuevo_nombre_ing.strip()
+            st.session_state.residentes[target_name] = (
+                st.session_state.residentes.pop(nombre_residente_actual)
+            )
+
+          lista_edis = [
+              e.strip() for e in nuevos_edis_str.split(",") if e.strip()
+          ]
+          st.session_state.residentes[target_name] = lista_edis
+
+          exito_config = guardar_configuracion_residentes(
+              st.session_state.residentes
+          )
+          if exito_config:
+            st.success("¡Cambios y edificios actualizados con éxito!")
+            st.session_state.panel_activo = None
+            st.rerun()
+          else:
+            st.error("Error al actualizar la configuración en GitHub.")
+      with col_a2:
+        if st.button(
+            "Cancelar", use_container_width=True, key="cancel_ajustar"
+        ):
           st.session_state.panel_activo = None
           st.rerun()
-        else:
-          st.error("Error al actualizar la configuración en GitHub.")
-    with col_a2:
-      if st.button("Cancelar", use_container_width=True, key="cancel_ajustar"):
+    else:
+      if st.button("Cancelar", key="cancel_pwd_ajustar"):
         st.session_state.panel_activo = None
         st.rerun()
 
 elif st.session_state.panel_activo == "eliminar":
   with st.expander(f"🗑️ Eliminar a: {nombre_residente_actual}", expanded=True):
-    st.warning(f"¿Estás seguro de eliminar a **{nombre_residente_actual}**?")
-    col_del1, col_del2 = st.columns(2)
-    with col_del1:
-      if st.button("Sí, Eliminar Definitivamente", use_container_width=True):
-        if len(st.session_state.residentes) > 1:
-          st.session_state.residentes.pop(nombre_residente_actual)
-          guardar_configuracion_residentes(st.session_state.residentes)
-          st.success(f"Ingeniero '{nombre_residente_actual}' eliminado.")
+    st.warning(
+        f"Se requiere contraseña de administrador para eliminar a"
+        f" **{nombre_residente_actual}**."
+    )
+    if verificar_password():
+      col_del1, col_del2 = st.columns(2)
+      with col_del1:
+        if st.button("Sí, Eliminar Definitivamente", use_container_width=True):
+          if len(st.session_state.residentes) > 1:
+            st.session_state.residentes.pop(nombre_residente_actual)
+            guardar_configuracion_residentes(st.session_state.residentes)
+            st.success(f"Ingeniero '{nombre_residente_actual}' eliminado.")
+            st.session_state.panel_activo = None
+            st.rerun()
+          else:
+            st.error("No puedes eliminar al único residente activo.")
+      with col_del2:
+        if st.button(
+            "Cancelar", use_container_width=True, key="cancel_eliminar"
+        ):
           st.session_state.panel_activo = None
           st.rerun()
-        else:
-          st.error("No puedes eliminar al único residente activo.")
-    with col_del2:
-      if st.button("Cancelar", use_container_width=True, key="cancel_eliminar"):
+    else:
+      if st.button("Cancelar", key="cancel_pwd_eliminar"):
         st.session_state.panel_activo = None
         st.rerun()
 
@@ -279,13 +348,25 @@ if (
           valores = partes[3:]
           if fec not in st.session_state.base_datos:
             st.session_state.base_datos[fec] = {}
+
           d_temp = {}
           for i, campo in enumerate(todos_los_campos):
             val = valores[i] if i < len(valores) else "0"
             if campo in column_1_actividades and val == "1":
               val = "100"
             d_temp[campo] = val
-          st.session_state.base_datos[fec][edi] = d_temp
+
+          # Leer observaciones si existen en la última posición
+          obs_val = (
+              valores[len(todos_los_campos)]
+              if len(valores) > len(todos_los_campos)
+              else ""
+          )
+
+          st.session_state.base_datos[fec][edi] = {
+              "valores": d_temp,
+              "observaciones": obs_val,
+          }
     except Exception as e:
       st.error(f"Error al procesar datos: {e}")
 
@@ -311,7 +392,10 @@ def obtener_valor_anterior(edi, campo, fecha_actual_str):
         continue
   if mejor_fecha:
     mejor_fecha_str = mejor_fecha.strftime("%d/%m/%Y")
-    val = st.session_state.base_datos[mejor_fecha_str][edi].get(campo, "0")
+    val = (
+        st.session_state.base_datos[mejor_fecha_str][edi]["valores"]
+        .get(campo, "0")
+    )
     if val == "1":
       return "100"
     return val
@@ -329,7 +413,7 @@ def verificar_si_ya_llego_a_100_en_pasado(edi, campo, fecha_actual_str):
       try:
         f_reg = datetime.datetime.strptime(fec_str, "%d/%m/%Y").date()
         if f_reg < f_actual:
-          v_ant = edificios[edi].get(campo, "0")
+          v_ant = edificios[edi]["valores"].get(campo, "0")
           if v_ant == "1" or (
               v_ant.replace(".", "", 1).isdigit() and float(v_ant) >= 100
           ):
@@ -403,18 +487,66 @@ with col_edi:
     st.warning("Este ing. no tiene edificios asignados.")
     edi_actual = "Sin Edificio"
 
+# --- BOTÓN PARA BORRAR FECHA ACTUAL ---
+col_bf1, col_bf2 = st.columns([3, 1])
+with col_bf2:
+  if st.button("🗑️ Borrar Fecha Actual", use_container_width=True):
+    st.session_state.panel_borrar_fecha = True
+
+if st.session_state.get("panel_borrar_fecha", False):
+  st.warning(
+      f"¿Eliminar todos los registros del edificio '{edi_actual}' en la fecha"
+      f" {fec_str}?"
+  )
+  st.info(
+      "Se requiere contraseña de administrador para eliminar registros de una"
+      " fecha."
+  )
+  if verificar_password():
+    if st.button("Confirmar Borrado de Fecha"):
+      try:
+        contenido_actual, sha_actual = leer_archivo_github(nombre_archivo_txt)
+        lineas_existentes = contenido_actual.splitlines(keepends=True)
+        nuevas_lineas = []
+        for l in lineas_existentes:
+          partes = l.strip().split(",")
+          # Si coincide fecha y edificio, se omite (se borra)
+          if len(partes) >= 3 and partes[0] == fec_str and partes[2] == edi_actual:
+            continue
+          nuevas_lineas.append(l if l.endswith("\n") else l + "\n")
+
+        contenido_final = "".join(nuevas_lineas)
+        exito = guardar_archivo_github(
+            nombre_archivo_txt, contenido_final, sha_actual
+        )
+        if exito:
+          if fec_str in st.session_state.base_datos and edi_actual in st.session_state.base_datos[fec_str]:
+            del st.session_state.base_datos[fec_str][edi_actual]
+          st.success("¡Registros de esta fecha eliminados correctamente!")
+          st.session_state.panel_borrar_fecha = False
+          st.rerun()
+        else:
+          st.error("Error al actualizar en GitHub.")
+      except Exception as e:
+        st.error(f"Error: {e}")
+  if st.button("Cancelar Borrado Fecha"):
+    st.session_state.panel_borrar_fecha = False
+    st.rerun()
+
 if edi_actual != "Sin Edificio":
   if fec_str not in st.session_state.base_datos:
     st.session_state.base_datos[fec_str] = {}
   if edi_actual not in st.session_state.base_datos[fec_str]:
     st.session_state.base_datos[fec_str][edi_actual] = {
-        campo: "0" for campo in todos_los_campos
+        "valores": {campo: "0" for campo in todos_los_campos},
+        "observaciones": "",
     }
 
   st.subheader(f"Capturando: {edi_actual} — Fecha: {fec_str}")
 
   col_c1, col_c2 = st.columns(2)
-  valores_actuales = st.session_state.base_datos[fec_str][edi_actual]
+  registro_actual = st.session_state.base_datos[fec_str][edi_actual]
+  valores_actuales = registro_actual["valores"]
   nuevos_valores = {}
 
   with col_c1:
@@ -463,7 +595,20 @@ if edi_actual != "Sin Edificio":
           f"val_{campo}", value=val_actual, label_visibility="collapsed"
       )
 
-  st.session_state.base_datos[fec_str][edi_actual] = nuevos_valores
+  st.session_state.base_datos[fec_str][edi_actual]["valores"] = nuevos_valores
+
+  st.markdown("---")
+  # --- CAMPO DE OBSERVACIONES AL FINAL ---
+  st.markdown("### 📝 Observaciones de la Jornada")
+  obs_actual = registro_actual.get("observaciones", "")
+  nuevas_observaciones = st.text_area(
+      "Escribe las observaciones generales:",
+      value=obs_actual,
+      label_visibility="collapsed",
+  )
+  st.session_state.base_datos[fec_str][edi_actual][
+      "observaciones"
+  ] = nuevas_observaciones
 
 st.divider()
 
@@ -472,7 +617,9 @@ col_btn1, col_btn2, col_btn3 = st.columns(3)
 
 with col_btn1:
   if (
-      st.button("💾 Guardar Edificio", type="primary", use_container_width=True)
+      st.button(
+          "💾 Guardar Edificio", type="primary", use_container_width=True
+      )
       and edi_actual != "Sin Edificio"
   ):
     try:
@@ -482,7 +629,8 @@ with col_btn1:
       datos = [fec_str, nombre_residente_actual, edi_actual]
       for campo in todos_los_campos:
         valor_ingresado = (
-            st.session_state.base_datos[fec_str][edi_actual][campo].strip()
+            st.session_state.base_datos[fec_str][edi_actual]["valores"][campo]
+            .strip()
         )
         if campo in column_1_actividades:
           try:
@@ -491,6 +639,14 @@ with col_btn1:
           except ValueError:
             pass
         datos.append(valor_ingresado)
+
+      # Añadir observaciones al final de la línea CSV
+      obs_a_guardar = (
+          st.session_state.base_datos[fec_str][edi_actual]
+          .get("observaciones", "")
+          .replace("\n", " ")
+      )
+      datos.append(obs_a_guardar)
 
       linea_nueva = ",".join(datos) + "\n"
 
@@ -502,9 +658,7 @@ with col_btn1:
           nuevas_lineas.append(linea_nueva)
           encontrado = True
         else:
-          nuevas_lineas.append(
-              l if l.endswith("\n") else l + "\n"
-          )
+          nuevas_lineas.append(l if l.endswith("\n") else l + "\n")
       if not encontrado:
         nuevas_lineas.append(linea_nueva)
 
@@ -513,7 +667,10 @@ with col_btn1:
           nombre_archivo_txt, contenido_final, sha_actual
       )
       if exito:
-        st.success(f"¡Edificio {edi_actual} guardado correctamente en GitHub!")
+        st.success(
+            f"¡Edificio {edi_actual} y observaciones guardados correctamente en"
+            " GitHub!"
+        )
       else:
         st.error("Error al guardar en GitHub.")
     except Exception as e:
@@ -525,7 +682,8 @@ with col_btn2:
       and edi_actual != "Sin Edificio"
   ):
     for campo in todos_los_campos:
-      st.session_state.base_datos[fec_str][edi_actual][campo] = "0"
+      st.session_state.base_datos[fec_str][edi_actual]["valores"][campo] = "0"
+    st.session_state.base_datos[fec_str][edi_actual]["observaciones"] = ""
     st.rerun()
 
 with col_btn3:
