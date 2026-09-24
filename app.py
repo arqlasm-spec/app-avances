@@ -220,15 +220,22 @@ if st.session_state.panel_activo == "nuevo":
                 e.strip() for e in edis_nuevos_txt.split(",") if e.strip()
             ]
             
-            # Crear archivo .txt inicial en GitHub para el nuevo residente
+            # 1. Crear el nombre del archivo de texto para el nuevo residente
             nombre_limpio_archivo = nombre_ing_limpio.replace(" ", "_").replace(".", "")
             nombre_archivo_nuevo = f"avances_obra_captura_{nombre_limpio_archivo}.txt"
             
+            # 2. Generar una línea inicial vacía para CADA edificio asignado
             fecha_hoy_str = datetime.date.today().strftime("%d/%m/%Y")
-            primer_edi = lista_edis_ini[0] if lista_edis_ini else "ED1"
+            edificios_a_crear = lista_edis_ini if lista_edis_ini else ["ED1"]
             ceros_iniciales = ",".join(["0"] * len(todos_los_campos))
-            contenido_inicial = f"{fecha_hoy_str},{nombre_ing_limpio},{primer_edi},{ceros_iniciales}\n"
             
+            lineas_iniciales = []
+            for edi in edificios_a_crear:
+              lineas_iniciales.append(f"{fecha_hoy_str},{nombre_ing_limpio},{edi},{ceros_iniciales}\n")
+            
+            contenido_inicial = "".join(lineas_iniciales)
+            
+            # 3. Guardar el archivo inicial en GitHub con TODOS los edificios
             exito_creacion = guardar_archivo_github(nombre_archivo_nuevo, contenido_inicial)
             
             if exito_creacion:
