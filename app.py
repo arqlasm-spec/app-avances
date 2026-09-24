@@ -583,6 +583,9 @@ if edi_actual != "Sin Edificio":
     st.markdown("### Actividades de Obra")
     for campo in column_1_actividades:
       val_ant = obtener_valor_anterior(edi_actual, campo, fec_str)
+      if val_ant == "0":
+        val_ant = ""  # Mostrar vacío si el anterior es 0
+
       bloqueado = verificar_si_ya_llego_a_100_en_pasado(
           edi_actual, campo, fec_str
       )
@@ -590,6 +593,9 @@ if edi_actual != "Sin Edificio":
       val_actual = "100" if bloqueado else valores_actuales.get(campo, "0")
       if val_actual == "1":
         val_actual = "100"
+
+      # Si el valor actual es 0, lo mostramos vacío para facilitar la captura
+      val_input_display = "" if val_actual == "0" else val_actual
 
       subcol1, subcol2 = st.columns([3, 2])
       with subcol1:
@@ -605,33 +611,45 @@ if edi_actual != "Sin Edificio":
         )
       with subcol2:
         if bloqueado:
-          nuevos_valores[campo] = st.text_input(
+          captura_ingresada = st.text_input(
               f"val_{campo}",
               value="100",
               disabled=True,
               label_visibility="collapsed",
           )
         else:
-          nuevos_valores[campo] = st.text_input(
-              f"val_{campo}", value=val_actual, label_visibility="collapsed"
+          captura_ingresada = st.text_input(
+              f"val_{campo}",
+              value=val_input_display,
+              label_visibility="collapsed",
           )
+
+        # Si el usuario lo deja vacío, se guarda automáticamente como "0"
+        nuevos_valores[campo] = (
+            "0" if captura_ingresada.strip() == "" else captura_ingresada.strip()
+        )
 
   with col_c2:
     st.markdown("### Días de la Semana")
     for campo in column_2_dias:
       val_actual = valores_actuales.get(campo, "0")
+      val_input_display = "" if val_actual == "0" else val_actual
+
       st.markdown(f"**{campo}**")
-      nuevos_valores[campo] = st.text_input(
-          f"val_{campo}", value=val_actual, label_visibility="collapsed"
+      captura_ingresada = st.text_input(
+          f"val_{campo}", value=val_input_display, label_visibility="collapsed"
+      )
+      nuevos_valores[campo] = (
+          "0" if captura_ingresada.strip() == "" else captura_ingresada.strip()
       )
 
-    # --- CAMPO DE OBSERVACIONES MOVIDO AQUÍ ---
+    # --- CAMPO DE OBSERVACIONES ---
     st.markdown("### 📝 Observaciones")
     obs_actual = registro_actual.get("observaciones", "")
     nuevas_observaciones = st.text_area(
         "Escribe las observaciones generales:",
         value=obs_actual,
-        height=180,  # Altura perfecta para ocupar el espacio visual indicado
+        height=180,
         label_visibility="collapsed",
     )
     st.session_state.base_datos[fec_str][edi_actual][
