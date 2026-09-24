@@ -125,6 +125,24 @@ def guardar_archivo_github(nombre_archivo, contenido_texto, sha=None):
   return response.status_code in [200, 201]
 
 
+def eliminar_archivo_github(nombre_archivo):
+  """Elimina un archivo permanentemente de la carpeta AP_OBRAS en GitHub."""
+  if not GITHUB_TOKEN or not GITHUB_REPO:
+    return False
+  _, sha = leer_archivo_github(nombre_archivo)
+  if not sha:
+    return True  # Si no existe, consideramos que ya no está
+
+  url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/AP_OBRAS/{nombre_archivo}"
+  headers = HEADERS_GH.copy()
+  data = {
+      "message": f"Eliminando archivo huérfano por baja de residente: {nombre_archivo}",
+      "sha": sha,
+  }
+  response = requests.delete(url, headers=headers, json=data)
+  return response.status_code in [200, 204]
+
+
 def cargar_configuracion_residentes():
   """Carga la configuración de residentes y sus edificios desde un archivo JSON en GitHub, o usa respaldo por defecto."""
   contenido, sha = leer_archivo_github("config_residentes.json")
@@ -304,16 +322,32 @@ elif st.session_state.panel_activo == "eliminar":
   with st.expander(f"🗑️ Eliminar a: {nombre_residente_actual}", expanded=True):
     st.warning(
         f"Se requiere contraseña de administrador para eliminar a"
-        f" **{nombre_residente_actual}**."
+        f" **{nombre_residente_actual}** y su archivo de registros asociado."
     )
     if verificar_password():
       col_del1, col_del2 = st.columns(2)
       with col_del1:
         if st.button("Sí, Eliminar Definitivamente", use_container_width=True):
           if len(st.session_state.residentes) > 1:
+            # 1. Eliminar el archivo .txt de avances en GitHub
+            nombre_limpio_borrar = (
+                nombre_residente_actual.replace(" ", "_")
+                .replace(".", "")
+                .replace("Â", "")
+            )
+            archivo_txt_a_borrar = (
+                f"avances_obra_captura_{nombre_limpio_borrar}.txt"
+            )
+            eliminar_archivo_github(archivo_txt_a_borrar)
+
+            # 2. Quitar al residente de la lista y actualizar el JSON
             st.session_state.residentes.pop(nombre_residente_actual)
             guardar_configuracion_residentes(st.session_state.residentes)
-            st.success(f"Ingeniero '{nombre_residente_actual}' eliminado.")
+
+            st.success(
+                f"Ingeniero '{nombre_residente_actual}' y su archivo de"
+                " registros fueron eliminados correctamente."
+            )
             st.session_state.panel_activo = None
             st.rerun()
           else:
@@ -510,7 +544,6 @@ if st.session_state.get("panel_borrar_fecha", False):
         nuevas_lineas = []
         for l in lineas_existentes:
           partes = l.strip().split(",")
-          # Si coincide fecha y edificio, se omite (se borra)
           if len(partes) >= 3 and partes[0] == fec_str and partes[2] == edi_actual:
             continue
           nuevas_lineas.append(l if l.endswith("\n") else l + "\n")
