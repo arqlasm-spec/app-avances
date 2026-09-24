@@ -76,7 +76,7 @@ todos_los_campos = column_1_actividades + column_2_dias
 
 
 def leer_archivo_github(nombre_archivo):
-  """Lee el contenido y el SHA de un archivo .txt desde GitHub."""
+  """Lee el contenido y el SHA de un archivo desde GitHub."""
   if not GITHUB_TOKEN or not GITHUB_REPO:
     return "", None
   url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/AP_OBRAS/{nombre_archivo}"
@@ -89,7 +89,7 @@ def leer_archivo_github(nombre_archivo):
 
 
 def guardar_archivo_github(nombre_archivo, contenido_texto, sha=None):
-  """Guarda o actualiza un archivo .txt en GitHub haciendo un commit automático."""
+  """Guarda o actualiza un archivo en GitHub haciendo un commit automático."""
   if not GITHUB_TOKEN or not GITHUB_REPO:
     return False
   url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/AP_OBRAS/{nombre_archivo}"
@@ -97,7 +97,7 @@ def guardar_archivo_github(nombre_archivo, contenido_texto, sha=None):
       "utf-8"
   )
   data = {
-      "message": f"Actualización de avances: {nombre_archivo}",
+      "message": f"Actualización de configuración/avances: {nombre_archivo}",
       "content": content_encoded,
   }
   if sha:
@@ -106,60 +106,37 @@ def guardar_archivo_github(nombre_archivo, contenido_texto, sha=None):
   return response.status_code in [200, 201]
 
 
-def obtener_lista_residentes_github():
-  """Escanea los archivos en la carpeta AP_OBRAS de GitHub para detectar residentes y sus edificios."""
-  residentes_encontrados = {}
-  if not GITHUB_TOKEN or not GITHUB_REPO:
-    return {
-        "Ing. Marcos": [f"ED{i}" for i in range(4, 9)],
-        "Ing. Raúl": ["ED10", "ED21", "ED22"],
-        "Ing. Abdiel": ["ED1", "ED2"],
-    }
-
-  url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/AP_OBRAS"
-  response = requests.get(url, headers=HEADERS_GH)
-  if response.status_code == 200:
-    for archivo in response.json():
-      nombre_archivo = archivo["name"]
-      if nombre_archivo.startswith("avances_obra_captura_") and nombre_archivo.endswith(".txt"):
-        contenido, _ = leer_archivo_github(nombre_archivo)
-        edificios_del_txt = set()
-        nombre_residente_detectado = None
-
-        for linea in contenido.splitlines():
-          partes = linea.strip().split(",")
-          if len(partes) >= 3:
-            if not nombre_residente_detectado and partes[1].strip():
-              nombre_residente_detectado = partes[1].strip()
-            if partes[2].strip():
-              edificios_del_txt.add(partes[2].strip())
-
-        if not nombre_residente_detectado:
-          nombre_bruto = (
-              nombre_archivo.replace("avances_obra_captura_", "")
-              .replace(".txt", "")
-          )
-          nombre_residente_detectado = nombre_bruto.replace("_", " ")
-          if nombre_residente_detectado.lower().startswith("ing "):
-            nombre_residente_detectado = "Ing. " + nombre_residente_detectado[4:]
-
-        if edificios_del_txt:
-          residentes_encontrados[nombre_residente_detectado] = sorted(
-              list(edificios_del_txt)
-          )
-
-  if not residentes_encontrados:
-    residentes_encontrados = {
-        "Ing. Marcos": [f"ED{i}" for i in range(4, 9)],
-        "Ing. Raúl": ["ED10", "ED21", "ED22"],
-        "Ing. Abdiel": ["ED1", "ED2"],
-    }
-
-  return residentes_encontrados
+def cargar_configuracion_residentes():
+  """Carga la configuración de residentes y sus edificios desde un archivo JSON en GitHub, o usa respaldo por defecto."""
+  contenido, sha = leer_archivo_github("config_residentes.json")
+  if contenido:
+    try:
+      return json.loads(contenido), sha
+    except:
+      pass
+  
+  # Respaldo por defecto si no existe el archivo JSON de configuración
+  default_config = {
+      "Ing. Marcos": [f"ED{i}" for i in range(4, 9)],
+      "Ing. Raúl": ["ED10", "ED21", "ED22"],
+      "Ing. Abdiel": ["ED1", "ED2"],
+  }
+  return default_config, None
 
 
-config_actual = {"residentes": obtener_lista_residentes_github()}
-LISTA_RESIDENTES = list(config_actual["residentes"].keys())
+def guardar_configuracion_residentes(diccionario_residentes):
+  """Guarda la configuración de residentes y edificios en GitHub."""
+  _, sha = leer_archivo_github("config_residentes.json")
+  contenido_json = json.dumps(diccionario_residentes, indent=4, ensure_ascii=False)
+  return guardar_archivo_github("config_residentes.json", contenido_json, sha)
+
+
+# Cargar residentes desde la configuración persistente en GitHub
+residentes_guardados, _ = cargar_configuracion_residentes()
+if "residentes" not in st.session_state:
+  st.session_state.residentes = residentes_guardados
+
+LISTA_RESIDENTES = list(st.session_state.residentes.keys())
 
 # --- INTERFAZ DE USUARIO ---
 st.title("🏗️ Control de Avances de Obra")
@@ -183,9 +160,7 @@ with col_res4:
 
 nombre_limpio = nombre_residente_actual.replace(" ", "_").replace(".", "")
 nombre_archivo_txt = f"avances_obra_captura_{nombre_limpio}.txt"
-EDIFICIOS_DISPONIBLES = config_actual["residentes"].get(
-    nombre_residente_actual, []
-)
+EDIFICIOS_DISPONIBLES = st.session_state.residentes.get(nombre_residente_actual, [])
 
 # --- MODALES / PANELES ---
 if btn_nuevo:
@@ -200,43 +175,32 @@ if "panel_activo" not in st.session_state:
 
 if st.session_state.panel_activo == "nuevo":
   with st.expander("➕ Dar de Alta a Nuevo Ingeniero", expanded=True):
-    nuevo_ing_txt = st.text_input("Nombre completo del nuevo ingeniero")
+    nuevo_ing_txt = st.text_input("Nombre completo del ingeniero")
     edis_nuevos_txt = st.text_input(
-        "Edificios iniciales asignados (separados por comas)", value="ED1, ED2"
+        "Edificios iniciales asignados (separados por comas)", value="P1, P2, P3"
     )
     col_n1, col_n2 = st.columns(2)
     with col_n1:
       if st.button("Guardar Nuevo Ingeniero", use_container_width=True):
         nombre_ing_limpio = nuevo_ing_txt.strip()
         if nombre_ing_limpio:
-          if nombre_ing_limpio not in config_actual["residentes"]:
+          if nombre_ing_limpio not in st.session_state.residentes:
             lista_edis_ini = [
                 e.strip() for e in edis_nuevos_txt.split(",") if e.strip()
             ]
+            if not lista_edis_ini:
+              lista_edis_ini = ["ED1"]
             
-            nombre_limpio_archivo = nombre_ing_limpio.replace(" ", "_").replace(".", "")
-            nombre_archivo_nuevo = f"avances_obra_captura_{nombre_limpio_archivo}.txt"
+            # Registrar en memoria y guardar en GitHub
+            st.session_state.residentes[nombre_ing_limpio] = lista_edis_ini
+            exito_config = guardar_configuracion_residentes(st.session_state.residentes)
             
-            fecha_hoy_str = datetime.date.today().strftime("%d/%m/%Y")
-            edificios_a_crear = lista_edis_ini if lista_edis_ini else ["ED1"]
-            ceros_iniciales = ",".join(["0"] * len(todos_los_campos))
-            
-            # Generar una línea independiente y correcta PARA CADA edificio indicado
-            lineas_iniciales = []
-            for edi in edificios_a_crear:
-              lineas_iniciales.append(f"{fecha_hoy_str},{nombre_ing_limpio},{edi},{ceros_iniciales}\n")
-            
-            contenido_inicial = "".join(lineas_iniciales)
-            
-            exito_creacion = guardar_archivo_github(nombre_archivo_nuevo, contenido_inicial)
-            
-            if exito_creacion:
-              config_actual["residentes"][nombre_ing_limpio] = edificios_a_crear
-              st.success(f"Ingeniero '{nombre_ing_limpio}' agregado y guardado en GitHub con éxito.")
+            if exito_config:
+              st.success(f"Ingeniero '{nombre_ing_limpio}' y sus edificios fueron guardados con éxito.")
               st.session_state.panel_activo = None
               st.rerun()
             else:
-              st.error("No se pudo crear el archivo del ingeniero en GitHub. Revisa tu token.")
+              st.error("Error al guardar la configuración en GitHub.")
           else:
             st.warning("Este ingeniero ya está registrado.")
         else:
@@ -247,12 +211,8 @@ if st.session_state.panel_activo == "nuevo":
         st.rerun()
 
 elif st.session_state.panel_activo == "ajustar":
-  with st.expander(
-      f"⚙️ Ajustar datos de: {nombre_residente_actual}", expanded=True
-  ):
-    nuevo_nombre_ing = st.text_input(
-        "Modificar nombre del ingeniero", value=nombre_residente_actual
-    )
+  with st.expander(f"⚙️ Ajustar datos de: {nombre_residente_actual}", expanded=True):
+    nuevo_nombre_ing = st.text_input("Modificar nombre del ingeniero", value=nombre_residente_actual)
     edificios_actuales_str = ", ".join(EDIFICIOS_DISPONIBLES)
     nuevos_edis_str = st.text_area(
         "Edificios asignados (separados por comas)",
@@ -262,18 +222,20 @@ elif st.session_state.panel_activo == "ajustar":
     with col_a1:
       if st.button("Guardar Cambios", use_container_width=True):
         target_name = nombre_residente_actual
-        if (
-            nuevo_nombre_ing.strip()
-            and nuevo_nombre_ing != nombre_residente_actual
-        ):
+        if nuevo_nombre_ing.strip() and nuevo_nombre_ing != nombre_residente_actual:
           target_name = nuevo_nombre_ing.strip()
-          config_actual["residentes"][target_name] = config_actual["residentes"
-          ].pop(nombre_residente_actual)
+          st.session_state.residentes[target_name] = st.session_state.residentes.pop(nombre_residente_actual)
+        
         lista_edis = [e.strip() for e in nuevos_edis_str.split(",") if e.strip()]
-        config_actual["residentes"][target_name] = lista_edis
-        st.success("¡Cambios guardados con éxito!")
-        st.session_state.panel_activo = None
-        st.rerun()
+        st.session_state.residentes[target_name] = lista_edis
+        
+        exito_config = guardar_configuracion_residentes(st.session_state.residentes)
+        if exito_config:
+          st.success("¡Cambios y edificios actualizados con éxito!")
+          st.session_state.panel_activo = None
+          st.rerun()
+        else:
+          st.error("Error al actualizar la configuración en GitHub.")
     with col_a2:
       if st.button("Cancelar", use_container_width=True, key="cancel_ajustar"):
         st.session_state.panel_activo = None
@@ -285,30 +247,29 @@ elif st.session_state.panel_activo == "eliminar":
     col_del1, col_del2 = st.columns(2)
     with col_del1:
       if st.button("Sí, Eliminar Definitivamente", use_container_width=True):
-        if len(config_actual["residentes"]) > 1:
-          config_actual["residentes"].pop(nombre_residente_actual)
+        if len(st.session_state.residentes) > 1:
+          st.session_state.residentes.pop(nombre_residente_actual)
+          guardar_configuracion_residentes(st.session_state.residentes)
           st.success(f"Ingeniero '{nombre_residente_actual}' eliminado.")
           st.session_state.panel_activo = None
           st.rerun()
         else:
           st.error("No puedes eliminar al único residente activo.")
     with col_del2:
-      if st.button(
-          "Cancelar", use_container_width=True, key="cancel_eliminar"
-      ):
+      if st.button("Cancelar", use_container_width=True, key="cancel_eliminar"):
         st.session_state.panel_activo = None
         st.rerun()
 
 st.divider()
 
-# --- CARGA DE DATOS DESDE GITHUB ---
+# --- CARGA DE DATOS DE AVANCES DESDE GITHUB ---
 if (
     "residente_actual_memoria" not in st.session_state
     or st.session_state.residente_actual_memoria != nombre_residente_actual
 ):
   st.session_state.residente_actual_memoria = nombre_residente_actual
   st.session_state.base_datos = {}
-  contenido_txt, sha_archivo = leer_archivo_github(nombre_archivo_txt)
+  contenido_txt, _ = leer_archivo_github(nombre_archivo_txt)
   if contenido_txt:
     try:
       for linea in contenido_txt.splitlines():
@@ -525,8 +486,7 @@ with col_btn1:
         )
         if campo in column_1_actividades:
           try:
-            num_val = float(valor_ingresado)
-            if num_val == 1.0:
+            if float(valor_ingresado) == 1.0:
               valor_ingresado = "100"
           except ValueError:
             pass
@@ -549,7 +509,6 @@ with col_btn1:
         nuevas_lineas.append(linea_nueva)
 
       contenido_final = "".join(nuevas_lineas)
-
       exito = guardar_archivo_github(
           nombre_archivo_txt, contenido_final, sha_actual
       )
@@ -575,4 +534,4 @@ with col_btn3:
     if contenido_txt:
       st.code(contenido_txt)
     else:
-      st.info("Aún no hay registros en GitHub para este residente.")
+      st.info("Aún no hay registros de avances en GitHub para este residente.")
