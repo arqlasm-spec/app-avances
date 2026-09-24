@@ -713,7 +713,7 @@ if edi_actual != "Sin Edificio":
 
 st.divider()
 
-# --- BOTONES DE ACCIÓN (GUARDAR EN GITHUB) ---
+# --- BOTONES DE ACCIÓN (GUARDAR EN GITHUB CON VALIDACIÓN DE AVANCE MENOR) ---
 col_btn1, col_btn2, col_btn3 = st.columns(3)
 
 with col_btn1:
@@ -723,58 +723,100 @@ with col_btn1:
       )
       and edi_actual != "Sin Edificio"
   ):
-    try:
-      contenido_actual, sha_actual = leer_archivo_github(nombre_archivo_txt)
-      lineas_existentes = contenido_actual.splitlines(keepends=True)
-
-      datos = [fec_str, nombre_residente_actual, edi_actual]
-      for campo in todos_los_campos:
-        valor_ingresado = (
-            st.session_state.base_datos[fec_str][edi_actual]["valores"][campo]
-            .strip()
-        )
-        if campo in column_1_actividades:
-          try:
-            if float(valor_ingresado) == 1.0:
-              valor_ingresado = "100"
-          except ValueError:
-            pass
-        datos.append(valor_ingresado)
-
-      obs_a_guardar = (
-          st.session_state.base_datos[fec_str][edi_actual]
-          .get("observaciones", "")
-          .replace("\n", " ")
+    # --- VALIDACIÓN DE AVANCE MENOR AL ANTERIOR ---
+    errores_avance = []
+    for campo in column_1_actividades:
+      val_ant_str = obtener_valor_anterior(edi_actual, campo, fec_str)
+      val_act_str = (
+          st.session_state.base_datos[fec_str][edi_actual]["valores"]
+          .get(campo, "0")
+          .strip()
       )
-      datos.append(obs_a_guardar)
 
-      linea_nueva = ",".join(datos) + "\n"
+      try:
+        val_ant_num = float(val_ant_str) if val_ant_str else 0.0
+      except ValueError:
+        val_ant_num = 0.0
 
-      nuevas_lineas = []
-      encontrado = False
-      for l in lineas_existentes:
-        partes = l.strip().split(",")
-        if len(partes) >= 3 and partes[0] == fec_str and partes[2] == edi_actual:
+      try:
+        val_act_num = float(val_act_str) if val_act_str else 0.0
+      except ValueError:
+        val_act_num = 0.0
+
+      # Si el valor ingresado es menor que el anterior registrado, se registra el error
+      if val_act_num < val_ant_num:
+        errores_avance.append(
+            f"• **{campo}**: Ingresaste **{val_act_num}** pero el registro"
+            f" anterior era **{val_ant_num}**."
+        )
+
+    if errores_avance:
+      st.error(
+          "⚠️ **Error de validación:** No puedes registrar un avance menor al"
+          " de una fecha anterior en las siguientes actividades:"
+      )
+      for err in errores_avance:
+        st.markdown(err)
+      st.warning(
+          "Por favor, corrige los valores señalados antes de volver a guardar."
+      )
+    else:
+      try:
+        contenido_actual, sha_actual = leer_archivo_github(nombre_archivo_txt)
+        lineas_existentes = contenido_actual.splitlines(keepends=True)
+
+        datos = [fec_str, nombre_residente_actual, edi_actual]
+        for campo in todos_los_campos:
+          valor_ingresado = (
+              st.session_state.base_datos[fec_str][edi_actual]["valores"][campo]
+              .strip()
+          )
+          if campo in column_1_actividades:
+            try:
+              if float(valor_ingresado) == 1.0:
+                valor_ingresado = "100"
+            except ValueError:
+              pass
+          datos.append(valor_ingresado)
+
+        obs_a_guardar = (
+            st.session_state.base_datos[fec_str][edi_actual]
+            .get("observaciones", "")
+            .replace("\n", " ")
+        )
+        datos.append(obs_a_guardar)
+
+        linea_nueva = ",".join(datos) + "\n"
+
+        nuevas_lineas = []
+        encontrado = False
+        for l in lineas_existentes:
+          partes = l.strip().split(",")
+          if (
+              len(partes) >= 3
+              and partes[0] == fec_str
+              and partes[2] == edi_actual
+          ):
+            nuevas_lineas.append(linea_nueva)
+            encontrado = True
+          else:
+            nuevas_lineas.append(l if l.endswith("\n") else l + "\n")
+        if not encontrado:
           nuevas_lineas.append(linea_nueva)
-          encontrado = True
-        else:
-          nuevas_lineas.append(l if l.endswith("\n") else l + "\n")
-      if not encontrado:
-        nuevas_lineas.append(linea_nueva)
 
-      contenido_final = "".join(nuevas_lineas)
-      exito = guardar_archivo_github(
-          nombre_archivo_txt, contenido_final, sha_actual
-      )
-      if exito:
-        st.success(
-            f"¡Edificio {edi_actual} y observaciones guardados correctamente en"
-            " GitHub!"
+        contenido_final = "".join(nuevas_lineas)
+        exito = guardar_archivo_github(
+            nombre_archivo_txt, contenido_final, sha_actual
         )
-      else:
-        st.error("Error al guardar en GitHub.")
-    except Exception as e:
-      st.error(f"Error: {e}")
+        if exito:
+          st.success(
+              f"¡Edificio {edi_actual} y observaciones guardados correctamente en"
+              " GitHub!"
+          )
+        else:
+          st.error("Error al guardar en GitHub.")
+      except Exception as e:
+        st.error(f"Error: {e}")
 
 with col_btn2:
   if (
