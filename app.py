@@ -9,19 +9,25 @@ st.set_page_config(
     page_title="Control de Avances de Obra", page_icon="🏗️", layout="centered"
 )
 
-# --- INYECCIÓN DE CSS PARA AGRANDAR ETIQUETA Y SELECTBOX DE EDIFICIOS ---
+# --- INYECCIÓN DE CSS PARA OCULTAR GITHUB, ESTILIZAR SELECTBOX Y ETIQUETA GRANDE ---
 st.markdown(
     """
     <style>
+        /* Ocultar el icono/enlace de GitHub de la esquina superior derecha */
+        #MainMenu {visibility: hidden;}
+        header {visibility: hidden;}
+        footer {visibility: hidden;}
+        .stApp > header {display: none;}
+        
         /* Agrandar la etiqueta (label) que está arriba del selectbox de edificios */
         div[data-testid="stSelectbox"] label p {
-            font-size: 18px !important;
+            font-size: 16px !important;
             font-weight: bold !important;
             color: #ffffff !important;
         }
-        /* Agrandar el texto seleccionado dentro de la caja del selectbox de edificios */
+        /* Agrandar el texto seleccionado dentro de la caja del selectbox */
         div[data-baseweb="select"] > div {
-            font-size: 20px !important;
+            font-size: 18px !important;
             font-weight: bold !important;
         }
         /* Ajustar tamaño de texto en la lista desplegable */
@@ -501,8 +507,10 @@ def navegar_fechas(direccion):
     st.session_state.selected_date = fechas_dt[nuevo_idx]
 
 
-# --- CONTROLES DE FECHA Y EDIFICIO (REORGANIZADOS) ---
-col_nav1, col_nav2, col_nav3, col_edi = st.columns([1.2, 2.2, 1.2, 3])
+# --- CONTROLES DE FECHA Y EDIFICIO (REORGANIZADOS CON ETIQUETA GRANDE) ---
+col_nav1, col_nav2, col_nav3, col_edi, col_etiqueta_edi = st.columns(
+    [1.1, 2.0, 1.1, 1.8, 1.6]
+)
 
 with col_nav1:
   if st.button("<< Anterior", use_container_width=True):
@@ -532,10 +540,28 @@ fec_str = st.session_state.selected_date.strftime("%d/%m/%Y")
 
 with col_edi:
   if EDIFICIOS_DISPONIBLES:
-    edi_actual = st.selectbox("Seleccione el Edificio", EDIFICIOS_DISPONIBLES)
+    edi_actual = st.selectbox("Edificio", EDIFICIOS_DISPONIBLES)
   else:
-    st.warning("Este ing. no tiene edificios asignados.")
+    st.warning("Sin edificios.")
     edi_actual = "Sin Edificio"
+
+with col_etiqueta_edi:
+  st.markdown(
+      f"""
+        <div style="
+            background-color: #1e1e1e; 
+            border: 2px solid #2ecc71; 
+            border-radius: 8px; 
+            padding: 6px 10px; 
+            text-align: center; 
+            margin-top: 23px;
+        ">
+            <span style="color: #2ecc71; font-size: 11px; font-weight: bold; display: block;">SELECCIONADO</span>
+            <span style="color: #ffffff; font-size: 20px; font-weight: bold;">{edi_actual}</span>
+        </div>
+    """,
+      unsafe_allow_html=True,
+  )
 
 # --- PANEL DE CONFIRMACIÓN PARA BORRAR FECHA ACTUAL ---
 if st.session_state.get("panel_borrar_fecha", False):
