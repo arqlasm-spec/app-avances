@@ -616,7 +616,11 @@ if st.session_state.get("panel_borrar_fecha", False):
         nuevas_lineas = []
         for l in lineas_existentes:
           partes = l.strip().split(",")
-          if len(partes) >= 3 and partes[0] == fec_str and partes[2] == edi_actual:
+          if (
+              len(partes) >= 3
+              and partes[0] == fec_str
+              and partes[2] == edi_actual
+          ):
             continue
           nuevas_lineas.append(l if l.endswith("\n") else l + "\n")
 
@@ -625,10 +629,30 @@ if st.session_state.get("panel_borrar_fecha", False):
             nombre_archivo_txt, contenido_final, sha_actual
         )
         if exito:
-          if fec_str in st.session_state.base_datos and edi_actual in st.session_state.base_datos[fec_str]:
+          # 1. Limpiar de la memoria local de session_state al instante
+          if (
+              fec_str in st.session_state.base_datos
+              and edi_actual in st.session_state.base_datos[fec_str]
+          ):
             del st.session_state.base_datos[fec_str][edi_actual]
+            if not st.session_state.base_datos[fec_str]:
+              del st.session_state.base_datos[fec_str]
+
           st.success("¡Registros de esta fecha eliminados correctamente!")
           st.session_state.panel_borrar_fecha = False
+
+          # 2. Recalcular fecha disponible y mover el calendario de inmediato
+          fechas_restantes = sorted(
+              st.session_state.base_datos.keys(),
+              key=lambda x: datetime.datetime.strptime(x, "%d/%m/%Y").date(),
+          )
+          if fechas_restantes:
+            st.session_state.selected_date = datetime.datetime.strptime(
+                fechas_restantes[-1], "%d/%m/%Y"
+            ).date()
+          else:
+            st.session_state.selected_date = datetime.date.today()
+
           st.rerun()
         else:
           st.error("Error al actualizar en GitHub.")
@@ -751,12 +775,10 @@ if st.session_state.get("mostrar_alerta_error", False):
   )
 
   if st.button("🔄 Entendido, limpiar valores y continuar", type="primary"):
-    # Limpia los campos con error de la memoria actual
     for campo_err in st.session_state.get("campos_errores_temp", []):
       st.session_state.base_datos[fec_str][edi_actual]["valores"][
           campo_err
       ] = "0"
-    # Cierra la alerta y recarga
     st.session_state.mostrar_alerta_error = False
     st.session_state.lista_errores_temp = []
     st.session_state.campos_errores_temp = []
@@ -805,7 +827,6 @@ else:
           campos_con_error.append(campo)
 
       if errores_avance:
-        # Activa la ventana de advertencia estilo "pop-up" bloqueante
         st.session_state.mostrar_alerta_error = True
         st.session_state.lista_errores_temp = errores_avance
         st.session_state.campos_errores_temp = campos_con_error
