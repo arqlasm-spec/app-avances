@@ -9,6 +9,24 @@ st.set_page_config(
     page_title="Control de Avances de Obra", page_icon="🏗️", layout="centered"
 )
 
+# --- INYECCIÓN DE CSS PARA AGRANDAR EL TEXTO DEL SELECTBOX DE EDIFICIOS ---
+st.markdown(
+    """
+    <style>
+        /* Agrandar el texto seleccionado y las opciones del selectbox de edificios */
+        div[data-baseweb="select"] > div {
+            font-size: 20px !important;
+            font-weight: bold !important;
+        }
+        /* Ajustar tamaño de texto en la lista desplegable */
+        li[role="option"] {
+            font-size: 18px !important;
+        }
+    </style>
+""",
+    unsafe_allow_html=True,
+)
+
 # --- CONFIGURACIÓN DE CONTRASEÑA DE ADMINISTRADOR ---
 PASSWORD_ADMIN = (
     "admin123"  # Cambia esta contraseña por la que desees para proteger cambios
@@ -131,7 +149,7 @@ def eliminar_archivo_github(nombre_archivo):
     return False
   _, sha = leer_archivo_github(nombre_archivo)
   if not sha:
-    return True  # Si no existe, consideramos que ya no está
+    return True
 
   url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/AP_OBRAS/{nombre_archivo}"
   headers = HEADERS_GH.copy()
@@ -152,7 +170,6 @@ def cargar_configuracion_residentes():
     except:
       pass
 
-  # Respaldo por defecto si no existe el archivo JSON de configuración
   default_config = {
       "Ing. Marcos": [f"ED{i}" for i in range(4, 9)],
       "Ing. Raúl": ["ED10", "ED21", "ED22"],
@@ -487,7 +504,7 @@ def navegar_fechas(direccion):
     st.session_state.selected_date = fechas_dt[nuevo_idx]
 
 
-# --- CONTROLES DE FECHA Y EDIFICIO ---
+# --- CONTROLES DE FECHA Y EDIFICIO (REORGANIZADOS) ---
 col_nav1, col_nav2, col_nav3, col_edi = st.columns([1.2, 2.2, 1.2, 3])
 
 with col_nav1:
@@ -504,6 +521,12 @@ with col_nav2:
   if fecha_seleccionada != st.session_state.selected_date:
     st.session_state.selected_date = fecha_seleccionada
 
+  # Botón de borrar fecha ubicado justo debajo de los controles de fecha
+  if st.button(
+      "🗑️ Borrar Fecha Actual", use_container_width=True, key="btn_borrar_fecha"
+  ):
+    st.session_state.panel_borrar_fecha = True
+
 with col_nav3:
   if st.button("Siguiente >>", use_container_width=True):
     navegar_fechas(1)
@@ -518,12 +541,7 @@ with col_edi:
     st.warning("Este ing. no tiene edificios asignados.")
     edi_actual = "Sin Edificio"
 
-# --- BOTÓN PARA BORRAR FECHA ACTUAL ---
-col_bf1, col_bf2 = st.columns([3, 1])
-with col_bf2:
-  if st.button("🗑️ Borrar Fecha Actual", use_container_width=True):
-    st.session_state.panel_borrar_fecha = True
-
+# --- PANEL DE CONFIRMACIÓN PARA BORRAR FECHA ACTUAL ---
 if st.session_state.get("panel_borrar_fecha", False):
   st.warning(
       f"¿Eliminar todos los registros del edificio '{edi_actual}' en la fecha"
@@ -584,7 +602,7 @@ if edi_actual != "Sin Edificio":
     for campo in column_1_actividades:
       val_ant = obtener_valor_anterior(edi_actual, campo, fec_str)
       if val_ant == "0":
-        val_ant = ""  # Mostrar vacío si el anterior es 0
+        val_ant = ""
 
       bloqueado = verificar_si_ya_llego_a_100_en_pasado(
           edi_actual, campo, fec_str
@@ -594,7 +612,6 @@ if edi_actual != "Sin Edificio":
       if val_actual == "1":
         val_actual = "100"
 
-      # Si el valor actual es 0, lo mostramos vacío para facilitar la captura
       val_input_display = "" if val_actual == "0" else val_actual
 
       subcol1, subcol2 = st.columns([3, 2])
@@ -624,7 +641,6 @@ if edi_actual != "Sin Edificio":
               label_visibility="collapsed",
           )
 
-        # Si el usuario lo deja vacío, se guarda automáticamente como "0"
         nuevos_valores[campo] = (
             "0" if captura_ingresada.strip() == "" else captura_ingresada.strip()
         )
