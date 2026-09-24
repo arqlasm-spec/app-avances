@@ -713,7 +713,7 @@ if edi_actual != "Sin Edificio":
 
 st.divider()
 
-# --- BOTONES DE ACCIÓN (GUARDAR EN GITHUB CON VALIDACIÓN DE AVANCE MENOR) ---
+# --- BOTONES DE ACCIÓN (GUARDAR EN GITHUB CON VALIDACIÓN MEJORADA) ---
 col_btn1, col_btn2, col_btn3 = st.columns(3)
 
 with col_btn1:
@@ -723,7 +723,7 @@ with col_btn1:
       )
       and edi_actual != "Sin Edificio"
   ):
-    # --- VALIDACIÓN DE AVANCE MENOR AL ANTERIOR ---
+    # --- VALIDACIÓN: SOLO MARCA ERROR SI SE LLENA UN NÚMERO MENOR Y NO ESTÁ VACÍO ---
     errores_avance = []
     for campo in column_1_actividades:
       val_ant_str = obtener_valor_anterior(edi_actual, campo, fec_str)
@@ -733,17 +733,21 @@ with col_btn1:
           .strip()
       )
 
+      # Si el campo se deja vacío o en cero, significa que no se avanzó esta semana (se mantiene el anterior)
+      if val_act_str == "" or val_act_str == "0":
+        continue
+
       try:
         val_ant_num = float(val_ant_str) if val_ant_str else 0.0
       except ValueError:
         val_ant_num = 0.0
 
       try:
-        val_act_num = float(val_act_str) if val_act_str else 0.0
+        val_act_num = float(val_act_str)
       except ValueError:
-        val_act_num = 0.0
+        continue  # Si escribieron texto inválido que no es número, se ignora aquí
 
-      # Si el valor ingresado es menor que el anterior registrado, se registra el error
+      # Solo genera error si el usuario escribió un número explícito menor al anterior
       if val_act_num < val_ant_num:
         errores_avance.append(
             f"• **{campo}**: Ingresaste **{val_act_num}** pero el registro"
