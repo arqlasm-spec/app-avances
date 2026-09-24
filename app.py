@@ -107,7 +107,7 @@ def guardar_archivo_github(nombre_archivo, contenido_texto, sha=None):
 
 
 def obtener_lista_residentes_github():
-  """Escanea los archivos en la carpeta AP_OBRAS de GitHub para detectar residentes."""
+  """Escanea los archivos en la carpeta AP_OBRAS de GitHub para detectar residentes y sus edificios."""
   residentes_encontrados = {}
   if not GITHUB_TOKEN or not GITHUB_REPO:
     return {
@@ -116,9 +116,7 @@ def obtener_lista_residentes_github():
         "Ing. Abdiel": ["ED1", "ED2"],
     }
 
-  url = (
-      f"https://api.github.com/repos/{GITHUB_REPO}/contents/AP_OBRAS"
-  )
+  url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/AP_OBRAS"
   response = requests.get(url, headers=HEADERS_GH)
   if response.status_code == 200:
     for archivo in response.json():
@@ -145,12 +143,10 @@ def obtener_lista_residentes_github():
           if nombre_residente_detectado.lower().startswith("ing "):
             nombre_residente_detectado = "Ing. " + nombre_residente_detectado[4:]
 
-        if not edificios_del_txt:
-          edificios_del_txt = {f"ED{i}" for i in range(4, 9)}
-
-        residentes_encontrados[nombre_residente_detectado] = sorted(
-            list(edificios_del_txt)
-        )
+        if edificios_del_txt:
+          residentes_encontrados[nombre_residente_detectado] = sorted(
+              list(edificios_del_txt)
+          )
 
   if not residentes_encontrados:
     residentes_encontrados = {
@@ -185,9 +181,7 @@ with col_res4:
   st.write("")
   btn_eliminar = st.button("🗑️ Borrar", type="primary")
 
-nombre_limpio = (
-    nombre_residente_actual.replace(" ", "_").replace(".", "")
-)
+nombre_limpio = nombre_residente_actual.replace(" ", "_").replace(".", "")
 nombre_archivo_txt = f"avances_obra_captura_{nombre_limpio}.txt"
 EDIFICIOS_DISPONIBLES = config_actual["residentes"].get(
     nombre_residente_actual, []
@@ -220,26 +214,24 @@ if st.session_state.panel_activo == "nuevo":
                 e.strip() for e in edis_nuevos_txt.split(",") if e.strip()
             ]
             
-            # 1. Crear el nombre del archivo de texto para el nuevo residente
             nombre_limpio_archivo = nombre_ing_limpio.replace(" ", "_").replace(".", "")
             nombre_archivo_nuevo = f"avances_obra_captura_{nombre_limpio_archivo}.txt"
             
-            # 2. Generar una línea inicial vacía para CADA edificio asignado
             fecha_hoy_str = datetime.date.today().strftime("%d/%m/%Y")
             edificios_a_crear = lista_edis_ini if lista_edis_ini else ["ED1"]
             ceros_iniciales = ",".join(["0"] * len(todos_los_campos))
             
+            # Generar una línea independiente y correcta PARA CADA edificio indicado
             lineas_iniciales = []
             for edi in edificios_a_crear:
               lineas_iniciales.append(f"{fecha_hoy_str},{nombre_ing_limpio},{edi},{ceros_iniciales}\n")
             
             contenido_inicial = "".join(lineas_iniciales)
             
-            # 3. Guardar el archivo inicial en GitHub con TODOS los edificios
             exito_creacion = guardar_archivo_github(nombre_archivo_nuevo, contenido_inicial)
             
             if exito_creacion:
-              config_actual["residentes"][nombre_ing_limpio] = lista_edis_ini
+              config_actual["residentes"][nombre_ing_limpio] = edificios_a_crear
               st.success(f"Ingeniero '{nombre_ing_limpio}' agregado y guardado en GitHub con éxito.")
               st.session_state.panel_activo = None
               st.rerun()
