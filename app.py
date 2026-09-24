@@ -9,11 +9,17 @@ st.set_page_config(
     page_title="Control de Avances de Obra", page_icon="🏗️", layout="centered"
 )
 
-# --- INYECCIÓN DE CSS PARA AGRANDAR EL TEXTO DEL SELECTBOX DE EDIFICIOS ---
+# --- INYECCIÓN DE CSS PARA AGRANDAR ETIQUETA Y SELECTBOX DE EDIFICIOS ---
 st.markdown(
     """
     <style>
-        /* Agrandar el texto seleccionado y las opciones del selectbox de edificios */
+        /* Agrandar la etiqueta (label) que está arriba del selectbox de edificios */
+        div[data-testid="stSelectbox"] label p {
+            font-size: 18px !important;
+            font-weight: bold !important;
+            color: #ffffff !important;
+        }
+        /* Agrandar el texto seleccionado dentro de la caja del selectbox de edificios */
         div[data-baseweb="select"] > div {
             font-size: 20px !important;
             font-weight: bold !important;
@@ -28,9 +34,7 @@ st.markdown(
 )
 
 # --- CONFIGURACIÓN DE CONTRASEÑA DE ADMINISTRADOR ---
-PASSWORD_ADMIN = (
-    "admin123"  # Cambia esta contraseña por la que desees para proteger cambios
-)
+PASSWORD_ADMIN = "admin123"
 
 
 def verificar_password():
@@ -48,7 +52,7 @@ def verificar_password():
 # --- CONFIGURACIÓN DE GITHUB ---
 try:
   GITHUB_TOKEN = st.secrets["github_token"]
-  GITHUB_REPO = st.secrets["github_repo"]  # Ejemplo: "tu_usuario/tu_repositorio"
+  GITHUB_REPO = st.secrets["github_repo"]
 except Exception as e:
   st.error(
       "Faltan configurar los secretos de GitHub en Streamlit. Revisa la sección"
@@ -108,12 +112,10 @@ column_2_dias = [
     "Miercoles",
 ]
 
-# Se añade el campo de observaciones al final de todos los campos guardados
 todos_los_campos = column_1_actividades + column_2_dias
 
 
 def leer_archivo_github(nombre_archivo):
-  """Lee el contenido y el SHA de un archivo desde GitHub."""
   if not GITHUB_TOKEN or not GITHUB_REPO:
     return "", None
   url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/AP_OBRAS/{nombre_archivo}"
@@ -126,7 +128,6 @@ def leer_archivo_github(nombre_archivo):
 
 
 def guardar_archivo_github(nombre_archivo, contenido_texto, sha=None):
-  """Guarda o actualiza un archivo en GitHub haciendo un commit automático."""
   if not GITHUB_TOKEN or not GITHUB_REPO:
     return False
   url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/AP_OBRAS/{nombre_archivo}"
@@ -144,7 +145,6 @@ def guardar_archivo_github(nombre_archivo, contenido_texto, sha=None):
 
 
 def eliminar_archivo_github(nombre_archivo):
-  """Elimina un archivo permanentemente de la carpeta AP_OBRAS en GitHub."""
   if not GITHUB_TOKEN or not GITHUB_REPO:
     return False
   _, sha = leer_archivo_github(nombre_archivo)
@@ -162,7 +162,6 @@ def eliminar_archivo_github(nombre_archivo):
 
 
 def cargar_configuracion_residentes():
-  """Carga la configuración de residentes y sus edificios desde un archivo JSON en GitHub, o usa respaldo por defecto."""
   contenido, sha = leer_archivo_github("config_residentes.json")
   if contenido:
     try:
@@ -179,7 +178,6 @@ def cargar_configuracion_residentes():
 
 
 def guardar_configuracion_residentes(diccionario_residentes):
-  """Guarda la configuración de residentes y edificios en GitHub."""
   _, sha = leer_archivo_github("config_residentes.json")
   contenido_json = json.dumps(
       diccionario_residentes, indent=4, ensure_ascii=False
@@ -187,7 +185,6 @@ def guardar_configuracion_residentes(diccionario_residentes):
   return guardar_archivo_github("config_residentes.json", contenido_json, sha)
 
 
-# Cargar residentes desde la configuración persistente en GitHub
 residentes_guardados, _ = cargar_configuracion_residentes()
 if "residentes" not in st.session_state:
   st.session_state.residentes = residentes_guardados
@@ -521,7 +518,6 @@ with col_nav2:
   if fecha_seleccionada != st.session_state.selected_date:
     st.session_state.selected_date = fecha_seleccionada
 
-  # Botón de borrar fecha ubicado justo debajo de los controles de fecha
   if st.button(
       "🗑️ Borrar Fecha Actual", use_container_width=True, key="btn_borrar_fecha"
   ):
