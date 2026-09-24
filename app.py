@@ -213,15 +213,31 @@ if st.session_state.panel_activo == "nuevo":
     col_n1, col_n2 = st.columns(2)
     with col_n1:
       if st.button("Guardar Nuevo Ingeniero", use_container_width=True):
-        if nuevo_ing_txt.strip():
-          if nuevo_ing_txt.strip() not in config_actual["residentes"]:
+        nombre_ing_limpio = nuevo_ing_txt.strip()
+        if nombre_ing_limpio:
+          if nombre_ing_limpio not in config_actual["residentes"]:
             lista_edis_ini = [
                 e.strip() for e in edis_nuevos_txt.split(",") if e.strip()
             ]
-            config_actual["residentes"][nuevo_ing_txt.strip()] = lista_edis_ini
-            st.success(f"Ingeniero '{nuevo_ing_txt}' agregado con éxito.")
-            st.session_state.panel_activo = None
-            st.rerun()
+            
+            # Crear archivo .txt inicial en GitHub para el nuevo residente
+            nombre_limpio_archivo = nombre_ing_limpio.replace(" ", "_").replace(".", "")
+            nombre_archivo_nuevo = f"avances_obra_captura_{nombre_limpio_archivo}.txt"
+            
+            fecha_hoy_str = datetime.date.today().strftime("%d/%m/%Y")
+            primer_edi = lista_edis_ini[0] if lista_edis_ini else "ED1"
+            ceros_iniciales = ",".join(["0"] * len(todos_los_campos))
+            contenido_inicial = f"{fecha_hoy_str},{nombre_ing_limpio},{primer_edi},{ceros_iniciales}\n"
+            
+            exito_creacion = guardar_archivo_github(nombre_archivo_nuevo, contenido_inicial)
+            
+            if exito_creacion:
+              config_actual["residentes"][nombre_ing_limpio] = lista_edis_ini
+              st.success(f"Ingeniero '{nombre_ing_limpio}' agregado y guardado en GitHub con éxito.")
+              st.session_state.panel_activo = None
+              st.rerun()
+            else:
+              st.error("No se pudo crear el archivo del ingeniero en GitHub. Revisa tu token.")
           else:
             st.warning("Este ingeniero ya está registrado.")
         else:
@@ -500,7 +516,6 @@ with col_btn1:
       and edi_actual != "Sin Edificio"
   ):
     try:
-      # Leer el archivo actual de GitHub para mantener el SHA correcto
       contenido_actual, sha_actual = leer_archivo_github(nombre_archivo_txt)
       lineas_existentes = contenido_actual.splitlines(keepends=True)
 
@@ -536,7 +551,6 @@ with col_btn1:
 
       contenido_final = "".join(nuevas_lineas)
 
-      # Guardar de vuelta en GitHub
       exito = guardar_archivo_github(
           nombre_archivo_txt, contenido_final, sha_actual
       )
