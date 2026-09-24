@@ -329,7 +329,6 @@ elif st.session_state.panel_activo == "eliminar":
       with col_del1:
         if st.button("Sí, Eliminar Definitivamente", use_container_width=True):
           if len(st.session_state.residentes) > 1:
-            # 1. Eliminar el archivo .txt de avances en GitHub
             nombre_limpio_borrar = (
                 nombre_residente_actual.replace(" ", "_")
                 .replace(".", "")
@@ -340,7 +339,6 @@ elif st.session_state.panel_activo == "eliminar":
             )
             eliminar_archivo_github(archivo_txt_a_borrar)
 
-            # 2. Quitar al residente de la lista y actualizar el JSON
             st.session_state.residentes.pop(nombre_residente_actual)
             guardar_configuracion_residentes(st.session_state.residentes)
 
@@ -390,7 +388,6 @@ if (
               val = "100"
             d_temp[campo] = val
 
-          # Leer observaciones si existen en la última posición
           obs_val = (
               valores[len(todos_los_campos)]
               if len(valores) > len(todos_los_campos)
@@ -628,20 +625,20 @@ if edi_actual != "Sin Edificio":
           f"val_{campo}", value=val_actual, label_visibility="collapsed"
       )
 
-  st.session_state.base_datos[fec_str][edi_actual]["valores"] = nuevos_valores
+    # --- CAMPO DE OBSERVACIONES MOVIDO AQUÍ ---
+    st.markdown("### 📝 Observaciones")
+    obs_actual = registro_actual.get("observaciones", "")
+    nuevas_observaciones = st.text_area(
+        "Escribe las observaciones generales:",
+        value=obs_actual,
+        height=180,  # Altura perfecta para ocupar el espacio visual indicado
+        label_visibility="collapsed",
+    )
+    st.session_state.base_datos[fec_str][edi_actual][
+        "observaciones"
+    ] = nuevas_observaciones
 
-  st.markdown("---")
-  # --- CAMPO DE OBSERVACIONES AL FINAL ---
-  st.markdown("### 📝 Observaciones de la Jornada")
-  obs_actual = registro_actual.get("observaciones", "")
-  nuevas_observaciones = st.text_area(
-      "Escribe las observaciones generales:",
-      value=obs_actual,
-      label_visibility="collapsed",
-  )
-  st.session_state.base_datos[fec_str][edi_actual][
-      "observaciones"
-  ] = nuevas_observaciones
+  st.session_state.base_datos[fec_str][edi_actual]["valores"] = nuevos_valores
 
 st.divider()
 
@@ -673,7 +670,6 @@ with col_btn1:
             pass
         datos.append(valor_ingresado)
 
-      # Añadir observaciones al final de la línea CSV
       obs_a_guardar = (
           st.session_state.base_datos[fec_str][edi_actual]
           .get("observaciones", "")
