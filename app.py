@@ -197,8 +197,23 @@ if "residentes" not in st.session_state:
 
 LISTA_RESIDENTES = list(st.session_state.residentes.keys())
 
-# --- INTERFAZ DE USUARIO ---
-st.title("🏗️ Control de Avances de Obra")
+# --- ENCABEZADO CON LOGO DE CEFECSA ---
+col_logo, col_titulo = st.columns([0.15, 0.85])
+
+with col_logo:
+  try:
+    st.image("logocefecsa.jpg", width=75)
+  except:
+    st.write("🏗️")  # Imagen de respaldo por si acaso
+
+with col_titulo:
+  st.markdown(
+      "<h1 style='margin: 0; padding-top: 5px;'>Control de Avances de"
+      " Obra</h1>",
+      unsafe_allow_html=True,
+  )
+
+st.divider()
 
 col_res1, col_res2, col_res3, col_res4 = st.columns([2.5, 1, 1, 1])
 
