@@ -570,7 +570,7 @@ with col_nav2:
         st.session_state.selected_date = fecha_seleccionada
 
     if st.button(
-        "🗑️ Borrar Fecha Actual", use_container_width=True, key="btn_borrar_fecha"
+        "🗑️️ Borrar Fecha Actual", use_container_width=True, key="btn_borrar_fecha"
     ):
         st.session_state.panel_borrar_fecha = True
 
@@ -734,11 +734,18 @@ if edi_actual != "Sin Edificio":
                     "0" if captura_ingresada.strip() == "" else captura_ingresada.strip()
                 )
 
-        # BLOQUE 1: Planta Baja y Cimentación
-        for campo in bloque_pb:
+        # BLOQUE 1: Cimentación (Línea justo después de Cimentación)
+        renderizar_campo_actividad("Cimentación")
+        st.markdown(
+            "<hr style='margin: 10px 0; border: 1px solid #444;'>",
+            unsafe_allow_html=True,
+        )
+
+        # Resto de Planta Baja
+        for campo in bloque_pb[1:]:
             renderizar_campo_actividad(campo)
 
-        # Línea divisoria Planta Baja
+        # Línea divisoria Planta Baja / Planta Alta
         st.markdown(
             "<hr style='margin: 10px 0; border: 1px solid #444;'>",
             unsafe_allow_html=True,
@@ -748,15 +755,27 @@ if edi_actual != "Sin Edificio":
         for campo in bloque_p1:
             renderizar_campo_actividad(campo)
 
-        # Línea divisoria Planta Alta
+        # Línea divisoria Planta Alta / Azotea
         st.markdown(
             "<hr style='margin: 10px 0; border: 1px solid #444;'>",
             unsafe_allow_html=True,
         )
 
-        # BLOQUE 3: Azotea, Acabados e Instalaciones Finales
+        # BLOQUE 3: Azotea, Acabados e Instalaciones Finales con líneas adicionales requeridas
         for campo in bloque_azotea:
             renderizar_campo_actividad(campo)
+            # Línea después de Tinacos
+            if campo == "Tinacos":
+                st.markdown(
+                    "<hr style='margin: 10px 0; border: 1px solid #444;'>",
+                    unsafe_allow_html=True,
+                )
+            # Línea después de Muebles Baño
+            elif campo == "Muebles Baño":
+                st.markdown(
+                    "<hr style='margin: 10px 0; border: 1px solid #444;'>",
+                    unsafe_allow_html=True,
+                )
 
     with col_c2:
         st.markdown("### Días de la Semana")
