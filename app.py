@@ -708,9 +708,9 @@ if edi_actual != "Sin Edificio":
                 st.markdown(
                     f"<div style='font-size: 13px; margin-bottom: 5px;'>"
                     f"<strong>{campo}</strong><br>"
-                    f"<span style='color: #f1c40f; font-weight: bold; font-size:"
+                    f"<span style='color: #2ecc71; font-weight: bold; font-size:"
                     f" 13px;'>ANTERIOR:</span> "
-                    f"<span style='color: white; font-weight: bold; font-size:"
+                    f"<span style='color: #f1c40f; font-weight: bold; font-size:"
                     f" 14px;'>{val_ant}</span>"
                     f"</div>",
                     unsafe_allow_html=True,
