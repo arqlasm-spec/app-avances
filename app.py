@@ -570,7 +570,7 @@ with col_nav2:
         st.session_state.selected_date = fecha_seleccionada
 
     if st.button(
-        "🗑️️ Borrar Fecha Actual", use_container_width=True, key="btn_borrar_fecha"
+        "🗑️ Borrar Fecha Actual", use_container_width=True, key="btn_borrar_fecha"
     ):
         st.session_state.panel_borrar_fecha = True
 
@@ -708,8 +708,8 @@ if edi_actual != "Sin Edificio":
                 st.markdown(
                     f"<div style='font-size: 13px; margin-bottom: 5px;'>"
                     f"<strong>{campo}</strong><br>"
-                    f"<span style='color: #2ecc71; font-weight: bold; font-size:"
-                    f" 13px;'>Ant:</span> "
+                    f"<span style='color: #f1c40f; font-weight: bold; font-size:"
+                    f" 13px;'>ANTERIOR:</span> "
                     f"<span style='color: white; font-weight: bold; font-size:"
                     f" 14px;'>{val_ant}</span>"
                     f"</div>",
